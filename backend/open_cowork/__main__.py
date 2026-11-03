@@ -19,6 +19,8 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    # Alembic is chatty at INFO; open_cowork.migrate reports upgrades and backups itself
+    logging.getLogger("alembic").setLevel(logging.WARNING)
     uvicorn.run(
         "open_cowork.main:app",
         host=args.host,
