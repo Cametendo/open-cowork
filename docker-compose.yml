@@ -1,16 +1,24 @@
-# Open Cowork — talks to an Ollama running on the host by default.
-#   docker compose up -d        → http://localhost:3000
+# Open Cowork, built from this repository.
+#   docker compose up -d        → http://localhost:3001
+#
+# The container uses this machine's own network (network_mode: host), so:
+#   - Ollama on this machine is reachable at localhost:11434 with its default settings
+#   - VPNs and Tailscale (including exit nodes and MagicDNS) work like they do for the machine
+#   - it runs next to Open WebUI on :3000 without conflicts
 # Repositories are cloned into ./repo and scratch task folders live in ./workspaces.
+#
+# Docker Desktop (macOS/Windows): add docker-compose.bridge.yml, see the README.
 services:
   open-cowork:
     build: .
     image: open-cowork:latest
     container_name: open-cowork
-    ports:
-      - "${OPEN_COWORK_PORT:-3000}:8080"
+    network_mode: host
     environment:
+      # Port Open Cowork listens on (on this machine)
+      - PORT=${OPEN_COWORK_PORT:-3001}
       # Initial connections (first boot only — change them later in Admin › Connections)
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://localhost:11434}
       - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Leave empty to generate one automatically (stored in the data volume)
@@ -23,8 +31,6 @@ services:
       - open-cowork-data:/app/backend/data
       - ./repo:/repo
       - ./workspaces:/workspaces
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:

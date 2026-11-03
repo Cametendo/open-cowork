@@ -7,15 +7,19 @@
 # Updating: open the stack, click "Update the stack" and choose to re-pull the image.
 # The container is replaced; your data in the open-cowork-data volume is kept and the
 # database is upgraded automatically on startup.
+#
+# The container uses the server's own network (network_mode: host): Ollama on the server
+# is reachable at localhost:11434, VPNs/Tailscale work, and it runs next to Open WebUI on :3000.
 services:
   open-cowork:
     image: ghcr.io/cametendo/open-cowork:${OPEN_COWORK_TAG:-latest}
     container_name: open-cowork
-    ports:
-      - "${OPEN_COWORK_PORT:-3000}:8080"
+    network_mode: host
     environment:
+      # Port Open Cowork listens on (on the server)
+      - PORT=${OPEN_COWORK_PORT:-3001}
       # Initial connections (first boot only — change them later in Admin › Connections)
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://localhost:11434}
       - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Leave empty to generate one automatically (stored in the data volume)
@@ -30,8 +34,6 @@ services:
       # Absolute host paths: Portainer resolves relative paths against its own stack folder
       - ${OPEN_COWORK_HOST_DIR:-/opt/open-cowork}/repo:/repo
       - ${OPEN_COWORK_HOST_DIR:-/opt/open-cowork}/workspaces:/workspaces
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:
