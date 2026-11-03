@@ -1,3 +1,5 @@
+<p align="center"><img src="frontend/public/icon-192.png" width="96" alt="Open Cowork icon"></p>
+
 # Open Cowork
 
 A self-hosted, Open WebUI–style workspace for **local models (Ollama)** and **any OpenAI-compatible API**, with a dedicated
