@@ -13,7 +13,8 @@ import secrets
 from functools import lru_cache
 from pathlib import Path
 
-VERSION = "0.1.0"
+# Release images set OPEN_COWORK_VERSION from the git tag; this is the fallback.
+VERSION = os.environ.get("OPEN_COWORK_VERSION") or "0.1.0"
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BACKEND_DIR.parent
