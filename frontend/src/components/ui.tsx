@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode 
 import { createPortal } from "react-dom";
 import { Loader2, X } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
+import logoMaskUrl from "@/assets/logo-mask.png";
 
 export function Spinner({ className }: { className?: string }) {
   return <Loader2 className={cn("size-4 animate-spin", className)} />;
@@ -362,12 +363,27 @@ export function EmptyState({ icon, title, children }: { icon?: ReactNode; title:
   );
 }
 
+const logoMask = {
+  maskImage: `url(${logoMaskUrl})`,
+  WebkitMaskImage: `url(${logoMaskUrl})`,
+  maskSize: "contain",
+  WebkitMaskSize: "contain",
+  maskRepeat: "no-repeat",
+  WebkitMaskRepeat: "no-repeat",
+  maskPosition: "center",
+  WebkitMaskPosition: "center",
+} as const;
+
+/**
+ * The app logo, drawn from the white brand logo used as a stencil: white in the dark
+ * theme, near-black in the light theme. Pass a size class (e.g. "size-7").
+ */
 export function Logo({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" className={cn("size-7", className)} aria-hidden>
-      <rect width="64" height="64" rx="16" className="fill-gray-900 dark:fill-white" />
-      <circle cx="25" cy="32" r="11" fill="none" strokeWidth="5" className="stroke-white dark:stroke-gray-900" />
-      <circle cx="39" cy="32" r="11" fill="none" strokeWidth="5" stroke="#8b7cff" />
-    </svg>
+    <span
+      aria-hidden
+      style={logoMask}
+      className={cn("inline-block shrink-0 bg-gray-900 dark:bg-white", className)}
+    />
   );
 }
