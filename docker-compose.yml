@@ -1,0 +1,31 @@
+# Open Cowork — talks to an Ollama running on the host by default.
+#   docker compose up -d        → http://localhost:3000
+# Repositories are cloned into ./repo and scratch task folders live in ./workspaces.
+services:
+  open-cowork:
+    build: .
+    image: open-cowork:latest
+    container_name: open-cowork
+    ports:
+      - "${OPEN_COWORK_PORT:-3000}:8080"
+    environment:
+      # Initial connections (first boot only — change them later in Admin › Connections)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Leave empty to generate one automatically (stored in the data volume)
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-}
+      - WEBUI_NAME=${WEBUI_NAME:-Open Cowork}
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
+      - DEFAULT_USER_ROLE=${DEFAULT_USER_ROLE:-pending}
+      - COWORK_ALLOW_SHELL=${COWORK_ALLOW_SHELL:-true}
+    volumes:
+      - open-cowork-data:/app/backend/data
+      - ./repo:/repo
+      - ./workspaces:/workspaces
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  open-cowork-data:

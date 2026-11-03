@@ -52,6 +52,27 @@ def _demo_calls(user_text: str):
     ]
 
 
+DEMO_ANSWER = """Think of a **vector database** as a library where books are shelved by *meaning* instead of by title.
+
+### How it works
+1. **Embed** — each document is turned into a vector (a list of numbers) by an embedding model.
+2. **Index** — vectors are stored in a structure built for fast nearest-neighbour search (e.g. HNSW).
+3. **Query** — your question is embedded too, and the closest vectors are returned.
+
+```python
+results = collection.query(query_texts=["how do I reset my password?"], n_results=3)
+for doc in results["documents"][0]:
+    print(doc)
+```
+
+| Traditional DB | Vector DB |
+| --- | --- |
+| Exact matches | Similar meaning |
+| `WHERE title = ...` | nearest neighbours |
+
+That's why they power *retrieval-augmented generation* (RAG): find the most relevant passages, then let the model answer with them."""
+
+
 def decide(messages, has_tools: bool):
     """Return ("text", str) or ("tools", [(name, args)])."""
     idx = _last_user_index(messages)
@@ -60,7 +81,9 @@ def decide(messages, has_tools: bool):
         user_text = " ".join(p.get("text", "") for p in user_text if isinstance(p, dict))
     if not has_tools:
         if "title (3-6 words)" in user_text:
-            return ("text", "Mock Conversation Title")
+            return ("text", "Vector Databases Explained" if "vector database" in user_text else "Mock Conversation Title")
+        if "vector database" in user_text.lower():
+            return ("text", DEMO_ANSWER)
         return ("text", f"Echo: {user_text}")
     tool_results = sum(1 for m in messages[idx + 1 :] if m.get("role") == "tool")
     directives = [(m.group(1), json.loads(m.group(2) or "{}")) for m in DIRECTIVE.finditer(user_text)]
