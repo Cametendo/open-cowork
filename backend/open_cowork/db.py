@@ -54,6 +54,8 @@ def get_db() -> Iterator[Session]:
 
 
 def init_db() -> None:
+    """Create or upgrade the schema to the newest migration."""
     from . import models  # noqa: F401  (register tables)
+    from .migrate import run_migrations
 
-    Base.metadata.create_all(engine)
+    run_migrations(engine)

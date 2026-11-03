@@ -54,10 +54,11 @@ fi
 need_node() {
   if ! command -v npm >/dev/null; then echo "Node.js 20+ (npm) is required to build the UI" >&2; exit 1; fi
 }
-if [[ ! -d frontend/node_modules ]]; then
+if [[ ! -d frontend/node_modules || frontend/package-lock.json -nt frontend/node_modules/.package-lock.json ]]; then
   need_node
   echo "› Installing frontend dependencies"
   (cd frontend && npm ci --no-audit --no-fund)
+  REBUILD=1
 fi
 
 mkdir -p "$REPO_DIR" "$WORKSPACE_DIR"

@@ -22,6 +22,8 @@ def client():
     from open_cowork.main import app
 
     Base.metadata.drop_all(engine)
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DROP TABLE IF EXISTS alembic_version")
     init_db()
     with TestClient(app) as c:
         yield c
