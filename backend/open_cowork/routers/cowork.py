@@ -340,7 +340,11 @@ async def upload(
     saved = []
     for f in files:
         name = Path(f.filename or "upload").name
+        if name in ("", ".", ".."):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Invalid file name: {f.filename!r}")
         dest = _resolve(ws, str((folder / name).relative_to(ws.root)))
+        if dest.is_dir():
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"'{name}' is a folder in the workspace")
         with dest.open("wb") as out:
             while chunk := await f.read(1024 * 1024):
                 out.write(chunk)

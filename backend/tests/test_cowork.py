@@ -104,3 +104,35 @@ def test_cowork_disabled_for_users(client, mock_llm_url):
     uh = auth_headers(signup(client, email="u@example.com").json()["token"])
     assert client.get("/api/cowork/sessions", headers=uh).status_code == 403
     assert client.get("/api/cowork/sessions", headers=h).status_code == 200
+
+
+def test_upload_and_download(client, mock_llm_url):
+    h = admin_client_with_connection(client, mock_llm_url)
+    s = client.post(
+        "/api/cowork/sessions",
+        json={"prompt": directive("list_files"), "model": "mock-llama:latest", "approval_mode": "auto"},
+        headers=h,
+    ).json()
+    collect(client, h, s["id"])
+    r = client.post(
+        f"/api/cowork/sessions/{s['id']}/upload",
+        files=[("files", ("data.csv", b"a,b\n1,2\n", "text/csv"))],
+        data={"path": "inputs"},
+        headers=h,
+    )
+    assert r.status_code == 200 and r.json()["saved"] == ["inputs/data.csv"]
+    assert client.get(f"/api/cowork/sessions/{s['id']}/download", params={"path": "inputs/data.csv"}, headers=h).content == b"a,b\n1,2\n"
+    bad = client.post(
+        f"/api/cowork/sessions/{s['id']}/upload",
+        files=[("files", ("..", b"x", "text/plain"))],
+        data={"path": "inputs"},
+        headers=h,
+    )
+    assert bad.status_code == 400
+    outside = client.post(
+        f"/api/cowork/sessions/{s['id']}/upload",
+        files=[("files", ("x.txt", b"x", "text/plain"))],
+        data={"path": "../.."},
+        headers=h,
+    )
+    assert outside.status_code == 400
