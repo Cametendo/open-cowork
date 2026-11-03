@@ -6,9 +6,9 @@ from fastapi import APIRouter
 
 
 def routers() -> list[APIRouter]:
-    from .routers import admin, auth, chats, connections, cowork, users
+    from .routers import admin, auth, chats, connections, cowork, github, users
 
-    return [auth.router, users.router, admin.router, connections.router, chats.router, cowork.router]
+    return [auth.router, users.router, admin.router, connections.router, chats.router, cowork.router, github.router]
 
 
 def run() -> None:
