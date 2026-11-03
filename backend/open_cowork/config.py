@@ -44,7 +44,7 @@ class Settings:
     def __init__(self) -> None:
         self.app_name: str = os.environ.get("WEBUI_NAME", "Open Cowork")
         self.host: str = os.environ.get("HOST", "0.0.0.0")
-        self.port: int = env_int("PORT", 8080)
+        self.port: int = env_int("PORT", 3001)
 
         # Directories
         self.data_dir: Path = env_path("DATA_DIR", BACKEND_DIR / "data")

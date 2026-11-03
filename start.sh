@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run Open Cowork locally without Docker.
 #
-#   ./start.sh            install what's missing, build the UI if needed, start on :8080
+#   ./start.sh            install what's missing, build the UI if needed, start on :3001
 #   ./start.sh --dev      start the API with auto-reload + the Vite dev server on :5173
 #   ./start.sh --rebuild  force a fresh frontend build
 #
@@ -22,7 +22,7 @@ if [[ "${OLLAMA_BASE_URL:-}" == *host.docker.internal* ]]; then
 fi
 export REPO_DIR="${REPO_DIR:-$ROOT/repo}"
 export WORKSPACE_DIR="${WORKSPACE_DIR:-$ROOT/workspaces}"
-PORT="${PORT:-8080}"
+PORT="${PORT:-${OPEN_COWORK_PORT:-3001}}"
 
 MODE="start"
 REBUILD=0

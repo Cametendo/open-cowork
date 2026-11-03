@@ -1,0 +1,19 @@
+# Use Docker's own network instead of the machine's, with a published port.
+# Needed on Docker Desktop (macOS/Windows), where host networking is off by default.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.bridge.yml up -d
+#
+# To make it the default, put this line in .env (use ; instead of : on Windows):
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.bridge.yml
+services:
+  open-cowork:
+    network_mode: !reset null
+    ports:
+      - "${OPEN_COWORK_PORT:-3001}:8080"
+    environment:
+      - PORT=8080
+      # Ollama on the host machine. On Linux, Ollama must listen on more than
+      # 127.0.0.1 for this to work (OLLAMA_HOST=0.0.0.0).
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
