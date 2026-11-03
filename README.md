@@ -49,10 +49,35 @@ cd open-cowork
 docker compose up -d
 ```
 
-Open http://localhost:3000 and create the first account, which becomes the admin. Cloned repositories appear in
+Open http://localhost:3001 and create the first account, which becomes the admin. Cloned repositories appear in
 `./repo` and Cowork scratch folders in `./workspaces`, next to the compose file.
 
-To run Ollama in a container as well:
+The container uses the machine's own network, so Ollama on `localhost:11434` works with its default settings, VPNs and
+Tailscale (exit nodes, MagicDNS) behave like they do for the machine, and Open WebUI can keep port 3000. To use a
+different port, set `OPEN_COWORK_PORT` in `.env`.
+
+**Docker Desktop (macOS/Windows):** host networking is off there by default, so add the bridge file, which publishes
+port 3001 and reaches Ollama through `host.docker.internal`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bridge.yml up -d
+```
+
+To make that the default, put `COMPOSE_FILE=docker-compose.yml:docker-compose.bridge.yml` in `.env` (use `;` instead
+of `:` on Windows).
+
+**If the build can't reach the internet** (for example behind a VPN or a Tailscale exit node), build on the machine's
+network yourself, then start as usual:
+
+```bash
+docker build --network host -t open-cowork:latest .
+```
+
+```bash
+docker compose up -d
+```
+
+To run Ollama in a container as well (Linux; skip this if Ollama is already installed on the machine):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.ollama.yml up -d
@@ -72,9 +97,9 @@ from source, so it works in Portainer's web editor.
 
 1. **Stacks › Add stack**, name it `open-cowork`, and paste the file into the web editor (or choose **Repository** and
    set the compose path to `docker-compose.portainer.yml`).
-2. Optionally set environment variables: `OPEN_COWORK_PORT` (default `3000`), `OLLAMA_BASE_URL`, and
+2. Optionally set environment variables: `OPEN_COWORK_PORT` (default `3001`), `OLLAMA_BASE_URL`, and
    `OPEN_COWORK_HOST_DIR` (default `/opt/open-cowork`; repositories go to `<dir>/repo`, task folders to `<dir>/workspaces`).
-3. Deploy and open `http://<your-server>:3000`.
+3. Deploy and open `http://<your-server>:3001`.
 
 To update, open the stack, click **Update the stack** and choose to re-pull the image. Your data is kept; see
 [Data, updates and backups](#data-updates-and-backups). The image is published when a release is tagged
@@ -89,7 +114,7 @@ Requirements: Python 3.11+, Node.js 20+ (only to build the UI) and git.
 ```
 
 This creates a virtualenv in `backend/.venv`, installs dependencies, builds the UI and serves everything on
-http://localhost:8080. Repositories go to `./repo` and task folders to `./workspaces`.
+http://localhost:3001. Repositories go to `./repo` and task folders to `./workspaces`.
 
 To work on the code, start the API with auto-reload plus the Vite dev server on http://localhost:5173:
 
@@ -140,7 +165,8 @@ managed in the admin panel.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `PORT` / `HOST` | `8080` / `0.0.0.0` | Where the server listens |
+| `OPEN_COWORK_PORT` | `3001` | Port for Docker Compose, Portainer and `./start.sh` |
+| `PORT` / `HOST` | `3001` / `0.0.0.0` | Where the server listens (inside the image it defaults to `8080`, which `docker-compose.bridge.yml` maps to `OPEN_COWORK_PORT`) |
 | `DATA_DIR` | `backend/data` (`/app/backend/data` in Docker) | SQLite database and generated secret key |
 | `REPO_DIR` | `./repo` (`/repo` in Docker) | Where repositories are cloned |
 | `WORKSPACE_DIR` | `./workspaces` (`/workspaces` in Docker) | Scratch folders for Cowork tasks |
@@ -148,7 +174,7 @@ managed in the admin panel.
 | `WEBUI_NAME` | `Open Cowork` | Instance name (*first boot*) |
 | `ENABLE_SIGNUP` | `true` | Allow new sign-ups (*first boot*) |
 | `DEFAULT_USER_ROLE` | `pending` | `pending` or `user` (*first boot*) |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Initial Ollama connection (*first boot*) |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Initial Ollama connection (*first boot*); `http://host.docker.internal:11434` with the bridge file |
 | `ENABLE_OLLAMA_API` | `true` | Enable that connection (*first boot*) |
 | `OPENAI_API_BASE_URL` / `OPENAI_API_KEY` | — | Initial OpenAI-compatible connection (*first boot*) |
 | `COWORK_ALLOW_SHELL` | `true` | Let the agent run shell commands (*first boot*) |
@@ -172,7 +198,8 @@ the server stops is interrupted; the steps it finished are kept and you can send
 
 **Updating**
 
-- Docker Compose (built from source): `git pull`, then `docker compose up -d --build`
+- Docker Compose (built from source): `git pull`, then `docker compose up -d --build` (or the `docker build --network host`
+  command above if the build can't reach the internet, followed by `docker compose up -d`)
 - Portainer or the published image: update the stack and re-pull the image
 - Local: `git pull`, then `./start.sh --rebuild`
 
@@ -211,6 +238,8 @@ someone a terminal.
 
 - In Docker it is confined to the container and the folders you mount (`repo/`, `workspaces/`). Running locally, it
   has your user's permissions.
+- With the default host networking, the agent's commands can also reach services that listen only on the machine's
+  `localhost`. Use `docker-compose.bridge.yml` if you want the container on Docker's separate network instead.
 - Admins can turn off shell commands, which limits the agent to reading and editing files inside the task's workspace.
 - File tools are confined to the task's workspace (symlinks included). Commands run with a scrubbed environment, so
   the server's secrets and API keys aren't visible to them.
