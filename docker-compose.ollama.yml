@@ -1,0 +1,28 @@
+# Run Ollama alongside Open Cowork:
+#   docker compose -f docker-compose.yml -f docker-compose.ollama.yml up -d
+#   docker compose exec ollama ollama pull qwen3:8b
+#
+# NVIDIA GPU: install the NVIDIA Container Toolkit and uncomment the deploy block.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  open-cowork:
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+
+volumes:
+  ollama:
