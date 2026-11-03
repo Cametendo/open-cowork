@@ -4,7 +4,7 @@
 # choose "Repository" with this file as the compose path. Override any ${VARIABLE}
 # below in the stack's "Environment variables" section.
 #
-# Updating: Stacks › open-cowork › Editor › "Update the stack" with "Re-pull image" on.
+# Updating: open the stack, click "Update the stack" and choose to re-pull the image.
 # The container is replaced; your data in the open-cowork-data volume is kept and the
 # database is upgraded automatically on startup.
 services:
