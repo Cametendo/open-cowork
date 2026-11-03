@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import "highlight.js/styles/github-dark.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Neutral greys in the spirit of Open WebUI */
+  --color-gray-50: #f9f9f9;
+  --color-gray-100: #ececec;
+  --color-gray-200: #e3e3e3;
+  --color-gray-300: #cdcdcd;
+  --color-gray-400: #b4b4b4;
+  --color-gray-500: #9b9b9b;
+  --color-gray-600: #676767;
+  --color-gray-700: #4e4e4e;
+  --color-gray-800: #333333;
+  --color-gray-850: #262626;
+  --color-gray-900: #171717;
+  --color-gray-950: #0d0d0d;
+
+  /* Accent used for Cowork and focus states */
+  --color-accent-300: #b9b0ff;
+  --color-accent-400: #9d91ff;
+  --color-accent-500: #8b7cff;
+  --color-accent-600: #6f5ef5;
+  --color-accent-700: #5a4ad6;
+
+  --animate-fade-in: fade-in 0.18s ease-out;
+  --animate-slide-up: slide-up 0.22s ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-gray-900 antialiased dark:bg-gray-900 dark:text-gray-100;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  @apply bg-accent-500/30;
+}
+
+/* Thin, unobtrusive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(155 155 155 / 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(155 155 155 / 0.35);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Markdown tweaks on top of @tailwindcss/typography */
+.markdown {
+  @apply prose prose-gray max-w-none dark:prose-invert;
+  --tw-prose-body: inherit;
+  line-height: 1.7;
+}
+.markdown :where(p, ul, ol) {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+.markdown :where(li) {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+}
+.markdown :where(h1, h2, h3, h4) {
+  margin-top: 1.1em;
+  margin-bottom: 0.5em;
+}
+.markdown :where(:not(pre) > code) {
+  @apply rounded-md bg-gray-100 px-1.5 py-0.5 font-normal before:content-none after:content-none dark:bg-gray-800;
+  font-size: 0.875em;
+}
+.markdown :where(pre) {
+  @apply m-0 bg-transparent p-0;
+}
+.markdown :where(table) {
+  @apply text-sm;
+}
+.markdown :where(a) {
+  @apply text-accent-600 no-underline hover:underline dark:text-accent-400;
+}
+.markdown > :first-child {
+  margin-top: 0;
+}
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+.hljs {
+  background: transparent !important;
+}
+
+.streaming .markdown > :last-child:not(div)::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-left: 0.25em;
+  border-radius: 999px;
+  vertical-align: middle;
+  @apply bg-gray-900 dark:bg-gray-100;
+  animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--color-gray-500) 0%, var(--color-gray-900) 50%, var(--color-gray-500) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.6s linear infinite;
+}
+.dark .shimmer {
+  background-image: linear-gradient(90deg, var(--color-gray-500) 0%, var(--color-gray-50) 50%, var(--color-gray-500) 100%);
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
