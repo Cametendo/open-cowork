@@ -18,7 +18,7 @@ from ..config import get_settings
 from ..cowork.runner import manager
 from ..cowork.tools import IGNORED_DIRS, ToolError, Workspace
 from ..cowork.workspaces import is_inside, new_scratch_folder
-from ..db import get_db, now
+from ..db import get_db, new_id, now
 from ..deps import get_verified_user
 from ..models import CoworkSession, Repository, User
 from ..sse import sse, sse_response
@@ -152,7 +152,12 @@ async def create_session(body: CreateSessionBody, user: User = Depends(get_cowor
         s.workspace_type = "scratch"
         s.workspace_path = str(new_scratch_folder(title))
     elif body.workspace.type == "repo":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Repository workspaces are not available yet")
+        from ..github.sessions import setup_repo_session
+
+        if user.role != "admin" and not get_config(db)["github_enabled"]:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "The GitHub integration is disabled")
+        notes = await setup_repo_session(db, s, user, body.workspace)
+        s.messages = [{"id": new_id(), "role": "event", "content": n, "created_at": now()} for n in notes]
     else:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown workspace type")
 

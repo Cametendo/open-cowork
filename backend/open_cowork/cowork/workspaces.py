@@ -38,5 +38,11 @@ async def prepare_workspace(db: Session, session: CoworkSession, user: User) -> 
     Returns extra environment variables for commands and, for repository
     workspaces, repo info for the system prompt.
     """
+    from ..github.repos import author_for
+    from ..github.sessions import prepare_repo_workspace
+
+    env = author_for(user)
+    if session.workspace_type == "repo":
+        return env, await prepare_repo_workspace(db, session, user)
     Path(session.workspace_path).mkdir(parents=True, exist_ok=True)
-    return {}, None
+    return env, None
