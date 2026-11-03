@@ -65,6 +65,21 @@ docker compose exec ollama ollama pull qwen3:8b
 To use an OpenAI-compatible API, copy `.env.example` to `.env` and set `OPENAI_API_BASE_URL` and `OPENAI_API_KEY`
 before the first start, or add a connection later in **Admin › Connections**.
 
+### Portainer
+
+Use [`docker-compose.portainer.yml`](docker-compose.portainer.yml). It pulls the published image instead of building
+from source, so it works in Portainer's web editor.
+
+1. **Stacks › Add stack**, name it `open-cowork`, and paste the file into the web editor (or choose **Repository** and
+   set the compose path to `docker-compose.portainer.yml`).
+2. Optionally set environment variables: `OPEN_COWORK_PORT` (default `3000`), `OLLAMA_BASE_URL`, and
+   `OPEN_COWORK_HOST_DIR` (default `/opt/open-cowork`; repositories go to `<dir>/repo`, task folders to `<dir>/workspaces`).
+3. Deploy and open `http://<your-server>:3000`.
+
+To update, open the stack, click **Update the stack** and choose to re-pull the image. Your data is kept; see
+[Data, updates and backups](#data-updates-and-backups). The image is published when a release is tagged
+(see [Releasing](#releasing)).
+
 ### Local (no Docker)
 
 Requirements: Python 3.11+, Node.js 20+ (only to build the UI) and git.
@@ -142,6 +157,53 @@ managed in the admin panel.
 | `CORS_ALLOW_ORIGINS` | — | `;`-separated origins, only needed if the UI is served elsewhere |
 | `DATABASE_URL` | SQLite in `DATA_DIR` | SQLAlchemy URL |
 
+## Data, updates and backups
+
+| What | Docker / Portainer | Local (`./start.sh`) |
+| --- | --- | --- |
+| Accounts, chats, Cowork tasks, connections, settings, encrypted GitHub tokens, secret key | `open-cowork-data` volume (`/app/backend/data`) | `backend/data/` |
+| Cloned repositories | `./repo` (Portainer: `/opt/open-cowork/repo`) | `./repo` |
+| Cowork scratch folders | `./workspaces` (Portainer: `/opt/open-cowork/workspaces`) | `./workspaces` |
+
+All of this survives restarts, reboots and updates: the container restarts by itself after a reboot, and replacing it
+with a new image keeps the volume. Data is only lost if the volume itself is deleted (`docker compose down -v`,
+`docker volume rm`), or if the image runs without a volume for `/app/backend/data`. A Cowork task that is running when
+the server stops is interrupted; the steps it finished are kept and you can send a message to continue.
+
+**Updating**
+
+- Docker Compose (built from source): `git pull`, then `docker compose up -d --build`
+- Portainer or the published image: update the stack and re-pull the image
+- Local: `git pull`, then `./start.sh --rebuild`
+
+On startup the database is upgraded to the new version automatically. Before an existing database is upgraded, a copy
+is saved next to it as `open-cowork.backup-<revision>-<date>.db` (the five newest are kept).
+
+Keep `WEBUI_SECRET_KEY` the same across updates, or leave it empty so the generated key in the data folder is used.
+Changing it logs everyone out and makes stored GitHub tokens and API keys unreadable; accounts and passwords are not
+affected.
+
+**Backup and restore**
+
+The container is called `open-cowork` in both compose files. Stop it so the database is consistent, then archive the
+data folder into the current directory:
+
+```bash
+docker stop open-cowork
+docker run --rm --volumes-from open-cowork -v "$PWD":/backup alpine:3 tar czf /backup/open-cowork-backup.tgz -C /app/backend/data .
+docker start open-cowork
+```
+
+To restore, replace the data folder with the backup:
+
+```bash
+docker stop open-cowork
+docker run --rm --volumes-from open-cowork -v "$PWD":/backup alpine:3 sh -c 'rm -rf /app/backend/data/* /app/backend/data/.[!.]* && tar xzf /backup/open-cowork-backup.tgz -C /app/backend/data'
+docker start open-cowork
+```
+
+Running locally, stop the server and copy `backend/data/`.
+
 ## Security notes
 
 Cowork is a real agent: with shell access on, it can run any command the server process can. Treat it like giving
@@ -167,6 +229,7 @@ backend/              FastAPI app (python -m open_cowork)
     providers/        Ollama + OpenAI-compatible streaming clients
     cowork/           agent loop, tools, prompts, workspaces
     github/           GitHub API client and git helpers
+    migrations/       Alembic database migrations (applied on startup)
   tests/              pytest suite + mock_llm.py (fake Ollama/OpenAI server)
 frontend/             React + Vite + Tailwind UI
 ```
@@ -185,6 +248,31 @@ To build the UI without a GPU, run the bundled fake model server and add it as a
 ```bash
 backend/.venv/bin/python backend/tests/mock_llm.py --port 11555
 ```
+
+### Database changes
+
+After changing `models.py`, generate a migration and review the new file in `open_cowork/migrations/versions/`. It
+compares against your local database in `backend/data`, so start the app once first.
+
+```bash
+cd backend
+.venv/bin/alembic revision --autogenerate --rev-id 0002 -m "add user timezone"
+```
+
+The test suite fails if a model change has no matching migration.
+
+### Releasing
+
+Pushing a version tag builds the Docker image for linux/amd64 and linux/arm64 and publishes it to GitHub Container
+Registry as `ghcr.io/cametendo/open-cowork:0.2.0`, `:0.2` and `:latest`:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+After the first release, check the package's visibility on GitHub (your profile › Packages › open-cowork). If it's
+private, either make it public or add `ghcr.io` as a registry in Portainer with a token that can read packages.
 
 ## License
 
