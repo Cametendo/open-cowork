@@ -19,6 +19,7 @@ from ..providers import ProviderError, resolve_model
 from .prompts import build_system_prompt
 from .tools import NEEDS_APPROVAL, ToolResult, Workspace, execute_tool, tool_specs
 from .workspaces import prepare_workspace
+from ..websearch import load_web_settings
 
 log = logging.getLogger(__name__)
 
@@ -208,11 +209,14 @@ class CoworkManager:
                 provider, raw_model = await resolve_model(db, s.model)
                 extra_env, repo_info = await prepare_workspace(db, s, user)
                 approval_mode = s.approval_mode
+                web = load_web_settings(db)
+                web = web if web.enabled else None
                 settings = user.settings or {}
                 system_prompt = build_system_prompt(
                     app_name=cfg["webui_name"],
                     workspace=s.workspace_path,
                     allow_shell=cfg["cowork_allow_shell"],
+                    allow_web=web is not None,
                     user_name=user.name,
                     repo=repo_info,
                     instructions=settings.get("cowork_instructions"),
@@ -225,9 +229,10 @@ class CoworkManager:
                 allow_shell=bool(cfg["cowork_allow_shell"]),
                 command_timeout=int(cfg["cowork_command_timeout"]),
                 extra_env=extra_env,
+                web=web,
             )
             ws.root.mkdir(parents=True, exist_ok=True)
-            tools = tool_specs(ws.allow_shell)
+            tools = tool_specs(ws.allow_shell, allow_web=web is not None)
             options: dict[str, Any] = {}
             if provider_type == "ollama" and cfg["cowork_ollama_num_ctx"]:
                 options["num_ctx"] = int(cfg["cowork_ollama_num_ctx"])

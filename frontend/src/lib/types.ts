@@ -24,7 +24,7 @@ export interface PublicConfig {
   name: string;
   version: string;
   onboarding: boolean;
-  features: { enable_signup: boolean; cowork: boolean; github: boolean };
+  features: { enable_signup: boolean; cowork: boolean; github: boolean; web_search: boolean };
 }
 
 export interface AdminConfig {
@@ -38,6 +38,19 @@ export interface AdminConfig {
   cowork_max_steps: number;
   cowork_ollama_num_ctx: number;
   github_enabled: boolean;
+  web_search_enabled: boolean;
+  web_search_engine: "duckduckgo" | "searxng" | "brave" | "tavily";
+  web_search_url: string;
+  web_search_result_count: number;
+  web_allow_private_hosts: boolean;
+  /** Read-only: whether an API key is stored (the key itself is never sent back) */
+  web_search_has_key?: boolean;
+}
+
+export interface WebSource {
+  title: string;
+  url: string;
+  snippet: string;
 }
 
 export interface Model {
@@ -71,6 +84,10 @@ export interface ChatMessage {
   error?: string;
   stopped?: boolean;
   usage?: Record<string, number | null>;
+  /** Web search used for this answer */
+  sources?: WebSource[];
+  search_query?: string;
+  search_error?: string;
   created_at: number;
 }
 

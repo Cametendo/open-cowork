@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { AlertTriangle, Check, Copy, Pencil, RefreshCw } from "lucide-react";
-import type { ChatMessage } from "@/lib/types";
+import { AlertTriangle, Check, ChevronDown, Copy, Globe, Pencil, RefreshCw } from "lucide-react";
+import type { ChatMessage, WebSource } from "@/lib/types";
 import { cn, copyText } from "@/lib/utils";
 import { AssistantContent } from "../Markdown";
 import { Button, Logo } from "../ui";
@@ -99,6 +99,84 @@ function UserMessage({
   );
 }
 
+function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/** Turn [1] citations into links to the matching source. */
+function linkCitations(content: string, sources?: WebSource[]) {
+  if (!sources?.length) return content;
+  return content.replace(/\[(\d{1,2})\](?!\()/g, (m, n) => {
+    const src = sources[Number(n) - 1];
+    return src ? `[${n}](${src.url})` : m;
+  });
+}
+
+function SearchSummary({ message, streaming }: { message: ChatMessage; streaming: boolean }) {
+  const [open, setOpen] = useState(false);
+  if (!message.search_query) return null;
+  const sources = message.sources;
+  const searching = streaming && sources === undefined;
+  return (
+    <div className="mb-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        disabled={!sources?.length}
+        className="flex max-w-full items-center gap-1.5 text-sm text-gray-500 enabled:hover:text-gray-800 dark:enabled:hover:text-gray-200"
+      >
+        <Globe className="size-4 shrink-0" />
+        <span className={cn("truncate", searching && "shimmer")}>
+          {searching
+            ? `Searching the web for “${message.search_query}”…`
+            : message.search_error
+              ? "Web search failed"
+              : sources?.length
+                ? `Searched the web · ${sources.length} source${sources.length === 1 ? "" : "s"}`
+                : "Searched the web · no results"}
+        </span>
+        {!!sources?.length && <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} />}
+      </button>
+      {message.search_error && <div className="mt-1 ml-5.5 text-xs text-amber-600 dark:text-amber-400">{message.search_error}</div>}
+      {open && !!sources?.length && (
+        <ol className="mt-2 space-y-1.5 border-l-2 border-gray-200 pl-3 dark:border-gray-800">
+          {sources.map((s, i) => (
+            <li key={s.url + i} className="text-sm">
+              <a href={s.url} target="_blank" rel="noreferrer noopener" className="font-medium text-accent-600 hover:underline dark:text-accent-400">
+                [{i + 1}] {s.title || hostOf(s.url)}
+              </a>
+              <div className="truncate text-xs text-gray-500">{hostOf(s.url)}</div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function SourceChips({ sources }: { sources: WebSource[] }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {sources.map((s, i) => (
+        <a
+          key={s.url + i}
+          href={s.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          title={s.title}
+          className="flex max-w-56 items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-850"
+        >
+          <span className="font-medium text-gray-900 dark:text-gray-100">{i + 1}</span>
+          <span className="truncate">{hostOf(s.url)}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function AssistantMessage({
   message,
   streaming,
@@ -116,7 +194,8 @@ function AssistantMessage({
       <Logo className="mt-0.5 size-7 shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="mb-1 text-sm font-medium text-gray-500">{message.model}</div>
-        {streaming && empty ? (
+        <SearchSummary message={message} streaming={streaming} />
+        {streaming && empty && !(message.search_query && message.sources === undefined) ? (
           <div className="flex h-7 items-center gap-1">
             <span className="size-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]" />
             <span className="size-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]" />
@@ -124,9 +203,10 @@ function AssistantMessage({
           </div>
         ) : (
           <div className={cn(streaming && "streaming")}>
-            <AssistantContent content={message.content} reasoning={message.reasoning} streaming={streaming} />
+            <AssistantContent content={linkCitations(message.content, message.sources)} reasoning={message.reasoning} streaming={streaming} />
           </div>
         )}
+        {!streaming && !!message.sources?.length && <SourceChips sources={message.sources} />}
         {message.error && (
           <div className="mt-2 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
