@@ -121,7 +121,12 @@ export const api = {
     patch<User>(`/api/users/${id}`, b),
   deleteUser: (id: string) => del(`/api/users/${id}`),
   adminConfig: () => get<AdminConfig>("/api/admin/config"),
-  updateAdminConfig: (b: Partial<AdminConfig>) => put<AdminConfig>("/api/admin/config", b),
+  updateAdminConfig: (b: Partial<AdminConfig> & { web_search_api_key?: string }) => put<AdminConfig>("/api/admin/config", b),
+  testWebSearch: (b: { engine: string; url: string; api_key?: string }) =>
+    post<{ ok: boolean; count: number; results: { title: string; url: string; snippet: string }[] }>(
+      "/api/admin/web-search/test",
+      b,
+    ),
   connections: () => get<Connection[]>("/api/admin/connections"),
   createConnection: (b: Partial<Connection> & { api_key?: string }) => post<Connection>("/api/admin/connections", b),
   updateConnection: (id: string, b: Partial<Connection> & { api_key?: string }) =>

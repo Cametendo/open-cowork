@@ -8,6 +8,7 @@ import {
   FileText,
   FolderTree,
   ListChecks,
+  Globe,
   Search,
   ShieldQuestion,
   SquareTerminal,
@@ -28,6 +29,8 @@ const ICONS: Record<string, typeof Wrench> = {
   search_files: Search,
   run_command: SquareTerminal,
   update_plan: ListChecks,
+  web_search: Globe,
+  fetch_url: Globe,
 };
 
 function str(v: unknown) {
@@ -49,6 +52,10 @@ export function describe(tc: ToolCall, result?: CoworkMessage): { verb: string; 
       return { verb: "Searched", target: `/${str(a.pattern)}/${a.glob ? ` in ${str(a.glob)}` : ""}` };
     case "run_command":
       return { verb: "Ran", target: str(a.command) };
+    case "web_search":
+      return { verb: "Searched the web", target: str(a.query) };
+    case "fetch_url":
+      return { verb: "Read", target: str(a.url) };
     case "update_plan":
       return { verb: "Updated plan", target: "" };
     default:
@@ -70,6 +77,8 @@ function pendingVerb(name: string) {
       search_files: "Searching",
       run_command: "Running",
       update_plan: "Updating plan",
+      web_search: "Searching the web",
+      fetch_url: "Reading",
     }[name] ?? "Running"
   );
 }

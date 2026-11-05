@@ -12,6 +12,7 @@ interface SendOptions {
   images?: string[];
   regenerate?: boolean;
   editMessageId?: string;
+  webSearch?: boolean;
 }
 
 interface ChatStore {
@@ -82,6 +83,7 @@ export const useChats = create<ChatStore>((set, get) => {
               images: opts.images,
               regenerate: !!opts.regenerate,
               edit_message_id: opts.editMessageId,
+              web_search: !!opts.webSearch,
             },
             signal: ctrl.signal,
           },
@@ -101,6 +103,15 @@ export const useChats = create<ChatStore>((set, get) => {
               }
               case "delta":
                 updateMessage(chatId, assistantId, (m) => ({ ...m, content: m.content + ev.text }));
+                break;
+              case "searching":
+                updateMessage(chatId, assistantId, (m) => ({ ...m, search_query: ev.query, sources: undefined, search_error: undefined }));
+                break;
+              case "sources":
+                updateMessage(chatId, assistantId, (m) => ({ ...m, search_query: ev.query, sources: ev.sources }));
+                break;
+              case "search_error":
+                updateMessage(chatId, assistantId, (m) => ({ ...m, search_error: ev.error }));
                 break;
               case "reasoning":
                 updateMessage(chatId, assistantId, (m) => ({ ...m, reasoning: (m.reasoning ?? "") + ev.text }));

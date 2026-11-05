@@ -19,6 +19,7 @@ GitHub repositories while you watch every step.
 - Streaming Markdown with syntax highlighting, tables and reasoning/`<think>` display
 - Edit, regenerate, stop; image attachments for vision models; automatic chat titles
 - Per-chat controls: system prompt, temperature, max tokens, Ollama context length
+- **Web search** (opt-in): a toggle in the chat box searches the web first and answers with numbered, clickable sources
 - Chats are saved on the server, so a reply keeps generating even if you close the tab
 
 **Cowork tab**
@@ -26,6 +27,7 @@ GitHub repositories while you watch every step.
 - **Ask first** mode pauses before every file edit and command (allow once, allow all, or deny). **Auto** mode runs without stopping.
 - Live view of each step: streamed command output, diffs for edits, plan progress
 - Send a message while it runs to steer it; stop at any time; reload the page mid-run and it picks up where it was
+- With web search enabled, the agent can also search the web and read pages (`web_search`, `fetch_url`) while it works
 - Side panel with plan, changed files, a file browser (preview, upload, download) and a Git tab
 - Each task works in its own folder: a fresh scratch folder in `workspaces/`, or a cloned repository in `repo/`
 
@@ -139,6 +141,33 @@ python -m venv .venv
 
 On Windows, use `.venv\Scripts\pip` and `.venv\Scripts\python`.
 </details>
+
+## Web search
+
+Off by default, because search queries (and the pages Cowork reads) leave your server. Turn it on in **Admin › Web
+search**, pick an engine and press **Test search**:
+
+| Engine | Needs | Notes |
+| --- | --- | --- |
+| DuckDuckGo | nothing | Works without an account, but DuckDuckGo may rate-limit automated searches |
+| SearXNG | your own server | Self-hosted and private. Enable the JSON format in its `settings.yml` (`search: formats: [html, json]`) |
+| Brave Search | API key | [brave.com/search/api](https://brave.com/search/api/), has a free tier |
+| Tavily | API key | [tavily.com](https://tavily.com), has a free tier |
+
+API keys are stored encrypted and never sent back to the browser.
+
+- **Chat:** a **Web search** toggle appears next to the message box. The question is searched, the top results are added
+  to the prompt, and the answer cites them as `[1]`, `[2]` with links and source chips. It works with any model, no
+  tool calling needed.
+- **Cowork:** the agent gets `web_search` and `fetch_url`. They only read, so they never ask for approval.
+- **Private addresses are blocked.** `fetch_url` only opens public internet pages, so the agent can't be pointed at
+  `localhost`, your LAN, Tailscale machines or cloud metadata addresses. The check runs on the address actually
+  connected to, for every redirect. Admins can turn it off with **Allow fetching private addresses** if Cowork should
+  read internal pages. (The search engine itself can be on `localhost`, e.g. a SearXNG container.)
+- Web pages are untrusted input. Models are told not to follow instructions found in them, but a page can still try to
+  steer the agent, which is one more reason to keep **Ask first** mode on for tasks that read the web.
+- Fetching goes straight out; it doesn't use `HTTP_PROXY`/`HTTPS_PROXY`. Behind a corporate proxy, either use an
+  engine with an API (those requests do honor the proxy) or allow private addresses so the proxy-aware client is used.
 
 ## Choosing models for Cowork
 
@@ -257,11 +286,12 @@ someone a terminal.
 backend/              FastAPI app (python -m open_cowork)
   open_cowork/
     routers/          auth, users, admin, connections, chats, cowork, github
+    websearch/        search engines and the safe page fetcher
     providers/        Ollama + OpenAI-compatible streaming clients
     cowork/           agent loop, tools, prompts, workspaces
     github/           GitHub API client and git helpers
     migrations/       Alembic database migrations (applied on startup)
-  tests/              pytest suite + mock_llm.py (fake Ollama/OpenAI server)
+  tests/              pytest suite + mock_llm.py (fake Ollama/OpenAI server) + mock_web.py (fake search + pages)
 frontend/             React + Vite + Tailwind UI
 ```
 
