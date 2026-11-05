@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ArrowDown, Code2, FileText, Lightbulb, PanelLeft, Settings2, SquarePen } from "lucide-react";
+import { ArrowDown, Code2, FileText, Globe, Lightbulb, PanelLeft, Settings2, SquarePen } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { ChatParams } from "@/lib/types";
@@ -51,10 +51,48 @@ export function TopBar({ children, right }: { children?: React.ReactNode; right?
   );
 }
 
+function WebSearchToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!on)}
+      title={on ? "Web search is on: answers use fresh search results" : "Search the web before answering"}
+      aria-pressed={on}
+      className={cn(
+        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] transition-colors",
+        on
+          ? "border-accent-500/50 bg-accent-500/10 text-accent-700 dark:text-accent-300"
+          : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800",
+      )}
+    >
+      <Globe className="size-3.5" />
+      Web search
+    </button>
+  );
+}
+
 export function ChatPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const user = useAuth((s) => s.user);
+  const webSearchAvailable = useAuth((s) => !!s.config?.features.web_search);
+  const [webSearchPref, setWebSearchPref] = useState(() => {
+    try {
+      return localStorage.getItem("web_search") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const webSearch = webSearchAvailable && webSearchPref;
+  const changeWebSearch = (v: boolean) => {
+    setWebSearchPref(v);
+    try {
+      localStorage.setItem("web_search", v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+  const searchToggle = webSearchAvailable ? <WebSearchToggle on={webSearch} onChange={changeWebSearch} /> : undefined;
   const { modelsLoaded, upsertChat } = useApp();
   const chat = useChats((s) => (id ? s.chats[id] : undefined));
   const streaming = useChats((s) => (id ? !!s.streaming[id] : false));
@@ -133,7 +171,7 @@ export function ChatPage() {
       }
     }
     setAtBottom(true);
-    send(chatId, { model, content: text, images: images.length ? images : undefined });
+    send(chatId, { model, content: text, images: images.length ? images : undefined, webSearch });
   };
 
   const params = chat?.params ?? draftParams;
@@ -178,7 +216,7 @@ export function ChatPage() {
                   <div className="text-gray-500">How can I help you today?</div>
                 </div>
               </div>
-              <MessageInput autoFocus allowImages large onSend={submit} disabled={!model} placeholder="How can I help you today?" />
+              <MessageInput autoFocus allowImages large onSend={submit} disabled={!model} placeholder="How can I help you today?" toolbar={searchToggle} />
               <div className="mt-5 grid gap-2 sm:grid-cols-3">
                 {SUGGESTIONS.map((s) => (
                   <button
@@ -200,8 +238,8 @@ export function ChatPage() {
               <Messages
                 messages={messages}
                 streaming={streaming}
-                onRegenerate={() => model && id && send(id, { model, regenerate: true })}
-                onEdit={(mid, content) => model && id && send(id, { model, content, editMessageId: mid })}
+                onRegenerate={() => model && id && send(id, { model, regenerate: true, webSearch })}
+                onEdit={(mid, content) => model && id && send(id, { model, content, editMessageId: mid, webSearch })}
               />
             </div>
             <div className="relative mx-auto w-full max-w-3xl px-4 pb-4">
@@ -223,6 +261,7 @@ export function ChatPage() {
                 onStop={() => id && stop(id)}
                 onSend={submit}
                 disabled={!model}
+                toolbar={searchToggle}
               />
               <div className="mt-2 text-center text-xs text-gray-400">
                 Models can make mistakes. Check important information.

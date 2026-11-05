@@ -57,6 +57,7 @@ def public_config(db: Session = Depends(get_db)):
             "enable_signup": bool(cfg["enable_signup"]) or user_count == 0,
             "cowork": cfg["cowork_enabled"],
             "github": cfg["github_enabled"],
+            "web_search": bool(cfg["web_search_enabled"]),
         },
     }
 

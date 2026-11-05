@@ -65,6 +65,38 @@ def mock_llm_url():
     thread.join(timeout=5)
 
 
+def _serve(app_obj):
+    import socket
+    import threading
+    import time
+
+    import uvicorn
+
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    server = uvicorn.Server(uvicorn.Config(app_obj, host="127.0.0.1", port=port, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    for _ in range(100):
+        if server.started:
+            break
+        time.sleep(0.05)
+    return f"http://127.0.0.1:{port}", server, thread
+
+
+@pytest.fixture(scope="session")
+def mock_web_url():
+    """tests/mock_web.py: a SearXNG-style search API and a few pages."""
+    from mock_web import app as web_app
+
+    url, server, thread = _serve(web_app)
+    yield url
+    server.should_exit = True
+    thread.join(timeout=5)
+
+
 def admin_client_with_connection(client, mock_llm_url, kind="ollama"):
     """Sign up an admin and point a single connection at the mock LLM."""
     tok = signup(client).json()["token"]

@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Bot,
   CheckCircle2,
+  Globe,
   Pencil,
   Plug,
   Plus,
@@ -40,6 +41,7 @@ const TABS = [
   { id: "users", label: "Users", icon: Users },
   { id: "connections", label: "Connections", icon: Plug },
   { id: "general", label: "General", icon: Settings },
+  { id: "web", label: "Web search", icon: Globe },
   { id: "cowork", label: "Cowork & GitHub", icon: Bot },
 ];
 
@@ -491,7 +493,7 @@ function useAdminConfig() {
   useEffect(() => {
     api.adminConfig().then(setCfg).catch((e) => toast.error(e.message));
   }, []);
-  const save = async (p: Partial<AdminConfig>) => {
+  const save = async (p: Partial<AdminConfig> & { web_search_api_key?: string }) => {
     try {
       setCfg(await api.updateAdminConfig(p));
       refreshConfig();
@@ -584,6 +586,117 @@ function CoworkTab() {
   );
 }
 
+const ENGINES: Record<AdminConfig["web_search_engine"], { label: string; hint: string }> = {
+  duckduckgo: { label: "DuckDuckGo", hint: "No account or key needed. DuckDuckGo may limit automated searches; use another engine if it does." },
+  searxng: { label: "SearXNG (self-hosted)", hint: "Your own meta-search server. Enable the JSON format in its settings.yml (search › formats: [html, json])." },
+  brave: { label: "Brave Search", hint: "Needs an API key from brave.com/search/api (has a free tier)." },
+  tavily: { label: "Tavily", hint: "Needs an API key from tavily.com (has a free tier). Built for AI search." },
+};
+
+function WebSearchTab() {
+  const { cfg, save } = useAdminConfig();
+  const [engine, setEngine] = useState<AdminConfig["web_search_engine"]>("duckduckgo");
+  const [url, setUrl] = useState("");
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState<"save" | "test" | null>(null);
+  const [test, setTest] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    if (!cfg) return;
+    setEngine(cfg.web_search_engine);
+    setUrl(cfg.web_search_url);
+  }, [cfg?.web_search_engine, cfg?.web_search_url]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!cfg) return <Spinner />;
+
+  const needsKey = engine === "brave" || engine === "tavily";
+  const dirty = engine !== cfg.web_search_engine || url !== cfg.web_search_url || key !== "";
+
+  const saveForm = async () => {
+    setBusy("save");
+    await save({ web_search_engine: engine, web_search_url: url, ...(key ? { web_search_api_key: key } : {}) });
+    setKey("");
+    setBusy(null);
+  };
+  const runTest = async () => {
+    setBusy("test");
+    setTest(null);
+    try {
+      const r = await api.testWebSearch({ engine, url, api_key: key || undefined });
+      setTest({ ok: true, text: r.count ? `Works — ${r.count} results, e.g. “${r.results[0]!.title}”` : "Connected, but the search returned no results" });
+    } catch (e: any) {
+      setTest({ ok: false, text: e.message });
+    }
+    setBusy(null);
+  };
+
+  return (
+    <div>
+      <p className="mb-2 text-sm text-gray-500">
+        Lets users switch on <strong>Web search</strong> in a chat, and lets Cowork look things up and read pages. Search queries
+        and the pages Cowork fetches leave this server, so it's off until you turn it on.
+      </p>
+      <div className="divide-y divide-gray-100 dark:divide-gray-850">
+        <SettingRow title="Enable web search" description="Chat gets a Web search toggle; Cowork gets the web_search and fetch_url tools.">
+          <Toggle checked={cfg.web_search_enabled} onChange={(v) => save({ web_search_enabled: v })} />
+        </SettingRow>
+        <div className="space-y-4 py-4">
+          <div>
+            <Label hint={ENGINES[engine].hint}>Search engine</Label>
+            <Select value={engine} onChange={(e) => setEngine(e.target.value as AdminConfig["web_search_engine"])} className="w-full">
+              {Object.entries(ENGINES).map(([id, e]) => (
+                <option key={id} value={id}>
+                  {e.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {engine === "searxng" && (
+            <div>
+              <Label hint="Where SearXNG is reachable from this server, e.g. http://localhost:8888">SearXNG URL</Label>
+              <Input value={url} placeholder="http://localhost:8888" onChange={(e) => setUrl(e.target.value)} />
+            </div>
+          )}
+          {needsKey && (
+            <div>
+              <Label hint={cfg.web_search_has_key ? "A key is stored (encrypted). Enter a new one to replace it." : "Stored encrypted on this server."}>
+                API key
+              </Label>
+              <Input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" placeholder={cfg.web_search_has_key ? "••••••••••••" : ""} />
+              {cfg.web_search_has_key && (
+                <button className="mt-1 text-xs text-gray-500 hover:underline" onClick={() => save({ web_search_api_key: "" })}>
+                  Remove the stored key
+                </button>
+              )}
+            </div>
+          )}
+          {test && (
+            <div className={cn("flex items-start gap-2 rounded-xl px-3 py-2 text-sm", test.ok ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-red-500/10 text-red-700 dark:text-red-300")}>
+              {test.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}
+              <span className="break-words">{test.text}</span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button variant="secondary" loading={busy === "test"} onClick={runTest}>
+              Test search
+            </Button>
+            <Button variant="primary" loading={busy === "save"} disabled={!dirty} onClick={saveForm}>
+              Save
+            </Button>
+          </div>
+        </div>
+        <SettingRow title="Results per search" description="How many results are added to the answer (1–10).">
+          <NumberSetting value={cfg.web_search_result_count} onSave={(v) => save({ web_search_result_count: Math.min(10, v) })} />
+        </SettingRow>
+        <SettingRow
+          title="Allow fetching private addresses"
+          description="By default fetch_url only opens public internet pages, so the agent can't reach localhost, your LAN or Tailscale machines. Turn on only if Cowork should read internal pages."
+        >
+          <Toggle checked={cfg.web_allow_private_hosts} onChange={(v) => save({ web_allow_private_hosts: v })} />
+        </SettingRow>
+      </div>
+    </div>
+  );
+}
+
 export function AdminPage() {
   const { tab = "users" } = useParams();
   const navigate = useNavigate();
@@ -616,6 +729,7 @@ export function AdminPage() {
             {current.id === "users" && <UsersTab />}
             {current.id === "connections" && <ConnectionsTab />}
             {current.id === "general" && <GeneralTab />}
+            {current.id === "web" && <WebSearchTab />}
             {current.id === "cowork" && <CoworkTab />}
           </section>
         </div>

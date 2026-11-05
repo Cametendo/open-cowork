@@ -81,8 +81,8 @@ def decide(messages, has_tools: bool):
         user_text = " ".join(p.get("text", "") for p in user_text if isinstance(p, dict))
     if not has_tools:
         if "title (3-6 words)" in user_text:
-            return ("text", "Vector Databases Explained" if "vector database" in user_text else "Mock Conversation Title")
-        if "vector database" in user_text.lower():
+            return ("text", "Vector Databases Explained" if "explain how vector database" in user_text.lower() else "Mock Conversation Title")
+        if user_text.lower().startswith("explain how vector database"):
             return ("text", DEMO_ANSWER)
         return ("text", f"Echo: {user_text}")
     tool_results = sum(1 for m in messages[idx + 1 :] if m.get("role") == "tool")

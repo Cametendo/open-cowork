@@ -31,7 +31,17 @@ def defaults() -> dict[str, Any]:
         "cowork_ollama_num_ctx": 16384,
         # GitHub integration
         "github_enabled": True,
+        # Web search (off until an admin turns it on: queries leave this server)
+        "web_search_enabled": False,
+        "web_search_engine": "duckduckgo",
+        "web_search_url": "",  # SearXNG base URL
+        "web_search_result_count": 5,
+        "web_allow_private_hosts": False,  # let fetch_url reach localhost / LAN addresses
     }
+
+WEB_SEARCH_ENGINES = ("duckduckgo", "searxng", "brave", "tavily")
+# Stored encrypted under this config key; never returned by the API
+WEB_SEARCH_KEY = "web_search_api_key"
 
 
 # Allowed value types for validation of admin updates
@@ -46,6 +56,11 @@ _TYPES: dict[str, type] = {
     "cowork_max_steps": int,
     "cowork_ollama_num_ctx": int,
     "github_enabled": bool,
+    "web_search_enabled": bool,
+    "web_search_engine": str,
+    "web_search_url": str,
+    "web_search_result_count": int,
+    "web_allow_private_hosts": bool,
 }
 
 
@@ -54,10 +69,31 @@ def get_config(db: Session) -> dict[str, Any]:
     for entry in db.query(ConfigEntry).all():
         if entry.key in cfg:
             cfg[entry.key] = entry.value
+    cfg["web_search_has_key"] = bool(db.get(ConfigEntry, WEB_SEARCH_KEY))
     return cfg
 
 
+def _set_web_search_key(db: Session, value: Any) -> None:
+    from .security import encrypt
+
+    if not isinstance(value, str):
+        raise ValueError("Invalid value for web_search_api_key")
+    value = value.strip()
+    entry = db.get(ConfigEntry, WEB_SEARCH_KEY)
+    if not value:  # empty string clears the key
+        if entry is not None:
+            db.delete(entry)
+    elif entry is None:
+        db.add(ConfigEntry(key=WEB_SEARCH_KEY, value=encrypt(value)))
+    else:
+        entry.value = encrypt(value)
+
+
 def update_config(db: Session, updates: dict[str, Any]) -> dict[str, Any]:
+    updates = dict(updates)
+    updates.pop("web_search_has_key", None)  # read-only, echoed back by the GET
+    if WEB_SEARCH_KEY in updates:
+        _set_web_search_key(db, updates.pop(WEB_SEARCH_KEY))
     for key, value in updates.items():
         expected = _TYPES.get(key)
         if expected is None:
@@ -72,6 +108,14 @@ def update_config(db: Session, updates: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"{key} must be positive")
         if key == "cowork_ollama_num_ctx" and value < 0:
             raise ValueError(f"{key} must be >= 0")
+        if key == "web_search_engine" and value not in WEB_SEARCH_ENGINES:
+            raise ValueError(f"web_search_engine must be one of: {', '.join(WEB_SEARCH_ENGINES)}")
+        if key == "web_search_result_count" and not 1 <= value <= 10:
+            raise ValueError("web_search_result_count must be between 1 and 10")
+        if key == "web_search_url":
+            value = value.strip().rstrip("/")
+            if value and not value.startswith(("http://", "https://")):
+                raise ValueError("The SearXNG URL must start with http:// or https://")
         if key == "webui_name":
             value = value.strip() or get_settings().app_name
         entry = db.get(ConfigEntry, key)
